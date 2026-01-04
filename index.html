@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schwimmbad</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="color-scheme" content="light">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script>
+      // Service Worker Registrierung
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js')
+            .catch(err => console.log('SW Fehler:', err));
+        });
+      }
+    </script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        
+/* Fix für PWA-Ränder */
+    html {background-color: #000000 !important;}
+        
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #334155;
+            min-height: 100vh;
+            padding: 1rem;
+            /* Hintergrundmuster, das an Wasser erinnert */
+            background-image: repeating-linear-gradient(135deg, #a8d5e5, #a8d5e5 5px, #bde0ef 5px, #bde0ef 10px);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        /* Zusätzliche kleine Anpassung für die Platzierung des "Morgen"-Labels */
+        #tomorrowLabel {
+             right: -2.5rem; /* Etwas mehr Platz */
+        }
+    </style>
+</head>
+<body>
+    <div class="w-full max-w-sm mx-auto p-4 bg-white rounded-2xl shadow-xl border-2 border-gray-200 space-y-2">
+        
+        <h1 class="text-xl font-bold text-center text-gray-800">Eintrittsrechner</h1>
+
+        <div class="bg-gray-50 border border-gray-200 p-2 rounded-lg space-y-2">
+            <div>
+                <label for="thermeSelect" class="block text-xs font-bold text-gray-500 uppercase mb-1">Therme</label>
+                <div class="relative">
+                    <select id="thermeSelect" class="w-full h-9 py-1 px-2 border border-gray-300 rounded-lg text-base text-gray-700 font-medium pr-10 appearance-none">
+                        <option value="badWoerishofen" selected>Bad Wörishofen</option>
+                        <option value="kristalltherme">Kristall-Therme Schwangau</option>
+                        <option value="titania">Titania</option>
+                        <option value="musterbad">Musterbad</option>
+                    </select>
+                    <button id="infoButton" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-500 transition-colors duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.855l-.041.021a.75.75 0 01-.855-1.063zm-.814 8.814h.024a.5.5 0 01-.024-.024v.024zm.814 0h.024a.5.5 0 01-.024-.024v.024zm-6.236-8.814h.024a.5.5 0 01-.024-.024v.024zm.814 0h.024a.5.5 0 01-.024-.024v.024z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="nextOpeningHoursDisplay" class="text-center text-sm p-2 bg-blue-100 text-blue-800 rounded-lg font-medium w-full">
+                </div>
+        </div>
+
+        <div class="bg-gray-50 border border-gray-200 p-2 rounded-lg space-y-2">
+             <div class="flex gap-2">
+                <div>
+                    <label for="entryTime" class="block text-xs font-bold text-gray-500 uppercase mb-1">Beginn des Besuches</label>
+                    <input type="time" id="entryTime" class="w-full h-9 py-1 px-2 border border-gray-300 rounded-lg text-base text-gray-700 font-medium text-center">
+                </div>
+                <div>
+                    <label for="departureTime" class="relative block text-xs font-bold text-gray-500 uppercase mb-1">Abreise bis (Uhrzeit)<span id="tomorrowLabel" class="hidden absolute -top-1.5 px-2 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full border border-blue-800">Morgen</span></label>
+                    <input type="time" id="departureTime" class="w-full h-9 py-1 px-2 border border-gray-300 rounded-lg text-base text-gray-700 font-medium text-center">
+                </div>
+            </div>
+             <div>
+                <label for="durationHours" class="block text-xs font-bold text-gray-500 uppercase mb-1">Aufenthalt (h/min)</label>
+                <div class="flex gap-2">
+                    <input type="number" id="durationHours" placeholder="Stunden" class="w-full h-9 py-1 px-2 border border-gray-300 rounded-lg text-base text-gray-700 font-medium text-center">
+                    <input type="number" id="durationMinutes" placeholder="Minuten" class="w-full h-9 py-1 px-2 border border-gray-300 rounded-lg text-base text-gray-700 font-medium text-center">
+                </div>
+            </div>
+        </div>
+
+        <div id="results" class="space-y-2">
+            <div id="recommendationBox" class="p-2 rounded-lg text-white font-medium text-center transition-colors duration-500 min-h-[4rem] flex flex-col justify-center">
+                <p id="recommendationText" class="text-lg font-bold">Warte auf Eingabe</p>
+                <p id="savingsText" class="mt-1 text-xs">&nbsp;</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-center">
+                 <div class="p-1 bg-red-100 border border-red-200 rounded-lg">
+                    <p class="text-xs text-red-700 font-bold">DEINE KOSTEN</p>
+                    <p class="text-base font-bold text-red-800"><span id="calculatedCost"></span></p>
+                </div>
+                 <div class="p-1 bg-gray-200 rounded-lg">
+                    <p class="text-xs text-gray-500 font-bold" id="durationLabel">DAUER</p>
+                    <p class="text-base font-bold text-gray-800"><span id="durationDisplay"></span></p>
+                </div>
+            </div>
+
+            <div id="breakEvenTimeContainer" class="p-2 bg-blue-100 rounded-lg text-center">
+                <p id="breakEvenLabel" class="text-xs text-blue-700">Tageskarte rentabel ab</p>
+                <p id="breakEvenTimeDisplay" class="text-sm font-bold text-blue-800"></p>
+            </div>
+        </div>
+
+        <div id="fixedPricesContainer" class="text-xs text-gray-500 pt-2 border-t border-gray-200">
+             </div>
+    </div>
+
+    <div id="infoModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden p-4">
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg border border-gray-200 space-y-4">
+            <div class="flex justify-between items-center pb-2 border-b border-gray-200">
+                <h2 id="modalTitle" class="text-xl font-bold text-gray-800"></h2>
+                <button id="closeModal" class="text-gray-400 hover:text-gray-600 transition-colors duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="modalContent" class="space-y-4 text-gray-700">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM-Elemente
+            const thermeSelect = document.getElementById('thermeSelect');
+            const entryTimeInput = document.getElementById('entryTime');
+            const departureTimeInput = document.getElementById('departureTime');
+            const durationHoursInput = document.getElementById('durationHours');
+            const durationMinutesInput = document.getElementById('durationMinutes');
+            const fixedPricesContainer = document.getElementById('fixedPricesContainer');
+            const recommendationBox = document.getElementById('recommendationBox');
+            const recommendationText = document.getElementById('recommendationText');
+            const savingsText = document.getElementById('savingsText');
+            const breakEvenTimeContainer = document.getElementById('breakEvenTimeContainer');
+            const breakEvenLabel = document.getElementById('breakEvenLabel');
+            const breakEvenTimeDisplay = document.getElementById('breakEvenTimeDisplay');
+            const calculatedCostDisplay = document.getElementById('calculatedCost');
+            const durationLabel = document.getElementById('durationLabel');
+            const durationDisplay = document.getElementById('durationDisplay');
+            const nextOpeningHoursDisplay = document.getElementById('nextOpeningHoursDisplay');
+            const tomorrowLabel = document.getElementById('tomorrowLabel');
+
+            const infoButton = document.getElementById('infoButton');
+            const infoModal = document.getElementById('infoModal');
+            const closeModalButton = document.getElementById('closeModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalContent = document.getElementById('modalContent');
+
+            // Daten der Thermen
+            const thermeData = {
+                badWoerishofen: {
+                    ticketPrices: [
+                        { duration: 120, price: 33.00, name: '2-Stunden-Ticket' },
+                        { duration: 240, price: 41.00, name: '4-Stunden-Ticket' },
+                        { duration: Infinity, price: 57.00, name: 'Tageskarte' }
+                    ],
+                    extensionCost: 2.00,
+                    openingHoursData: {
+                        'Sonntag': { start: '09:00', end: '22:00' },
+                        'Montag': { start: '10:00', end: '22:00' },
+                        'Dienstag': { start: '10:00', end: '22:00' },
+                        'Mittwoch': { start: '10:00', end: '22:00' },
+                        'Donnerstag': { start: '10:00', end: '23:00' },
+                        'Freitag': { start: '10:00', end: '23:00' },
+                        'Samstag': { start: '09:00', end: '24:00' } // 24:00 (Mitternacht)
+                    }
+                },
+                kristalltherme: {
+                    ticketPrices: [
+                        { duration: 120, price: 26.00, name: '2-Stunden-Karte' },
+                        { duration: 240, price: 36.00, name: '4-Stunden-Karte' },
+                        { duration: Infinity, price: 45.00, name: 'Tageskarte' }
+                    ],
+                    extensionCost: 3.00,
+                    openingHoursData: {
+                        'Sonntag': { start: '09:00', end: '21:00' },
+                        'Montag': { start: '09:00', end: '21:00' },
+                        'Dienstag': { start: '09:00', end: '21:00' },
+                        'Mittwoch': { start: '09:00', end: '21:00' },
+                        'Donnerstag': { start: '09:00', end: '21:00' },
+                        'Freitag': { start: '09:00', end: '22:00' },
+                        'Samstag': { start: '09:00', end: '22:00' }
+                    }
+                },
+                titania: {
+                    ticketPrices: [
+                        { duration: 120, price: 31.50, name: '2-Stunden-Ticket' },
+                        { duration: 240, price: 35.50, name: '4-Stunden-Ticket' },
+                        { duration: Infinity, price: 41.00, name: 'Tageskarte' }
+                    ],
+                    extensionCost: 2.00,
+                    openingHoursData: {
+                        'Sonntag': { start: '09:30', end: '22:00' },
+                        'Montag': { start: '09:30', end: '22:00' },
+                        'Dienstag': { start: '09:30', end: '22:00' },
+                        'Mittwoch': { start: '09:30', end: '22:00' },
+                        'Donnerstag': { start: '09:30', end: '22:00' },
+                        'Freitag': { start: '09:30', end: '22:00' },
+                        'Samstag': { start: '09:30', end: '22:00' }
+                    }
+                },
+                musterbad: {
+                    ticketPrices: [
+                        { duration: 120, price: 10.00, name: '2-Stunden-Ticket' },
+                        { duration: 240, price: 20.00, name: '4-Stunden-Ticket' },
+                        { duration: Infinity, price: 30.00, name: 'Tageskarte' }
+                    ],
+                    extensionCost: 2.00,
+                    openingHoursData: {
+                        'Sonntag': { start: '10:00', end: '22:00' },
+                        'Montag': { start: '10:00', end: '22:00' },
+                        'Dienstag': { start: '10:00', end: '22:00' },
+                        'Mittwoch': { start: '10:00', end: '22:00' },
+                        'Donnerstag': { start: '10:00', end: '22:00' },
+                        'Freitag': { start: '10:00', end: '22:00' },
+                        'Samstag': { start: '10:00', end: '22:00' }
+                    }
+                }
+            };
+
+            let currentTherme = thermeData[thermeSelect.value];
+            const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+            // Globale Variable, die den Zustand der letzten Interaktion speichert
+            let lastInteractionType = 'time'; // 'time' oder 'duration'
+
+            // Funktion, die die aktuelle Zeit ohne Sekunden und Millisekunden zurückgibt
+            function getNow() {
+                const now = new Date();
+                now.setSeconds(0, 0); 
+                return now;
+            }
+
+            // Gibt die aktuelle Zeit als HH:mm String zurück
+            function getNowTimeFormatted() {
+                const now = getNow();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                return `${hours}:${minutes}`;
+            }
+
+            // NEUE HELPER FUNKTION: Zentralisiert die 24:00 Uhr Logik
+            function getClosingTime(date, hours) {
+                const [endHour, endMinute] = hours.end.split(':').map(Number);
+                const closingTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), endHour, endMinute);
+                if (endHour === 24) {
+                    // 24:00 ist Mitternacht des nächsten Tages (00:00)
+                    closingTime.setDate(closingTime.getDate() + 1);
+                    closingTime.setHours(0, 0, 0, 0);
+                }
+                return closingTime;
+            }
+
+            function displayOpeningHours(date) {
+                const dayName = days[date.getDay()];
+                const hours = currentTherme.openingHoursData[dayName];
+                const now = getNow();
+
+                if (!hours) {
+                    // Wenn heute geschlossen ist
+                    let nextOpeningDayFound = false;
+                    for (let i = 1; i <= 7; i++) {
+                        const nextDayDate = new Date(now);
+                        nextDayDate.setDate(now.getDate() + i);
+                        const nextDayName = days[nextDayDate.getDay()];
+                        if (currentTherme.openingHoursData[nextDayName]) {
+                            nextOpeningHoursDisplay.innerHTML = `Geschlossen heute. Nächste Öffnung: ${nextDayName} um ${currentTherme.openingHoursData[nextDayName].start} Uhr.`;
+                            nextOpeningDayFound = true;
+                            break;
+                        }
+                    }
+                    if (!nextOpeningDayFound) {
+                        nextOpeningHoursDisplay.innerHTML = "Geschlossen";
+                    }
+                    return;
+                }
+                
+                // Wenn das angezeigte Datum der aktuelle Tag ist (oder der Tag, an dem die Berechnung stattfindet)
+                if (date.toDateString() === now.toDateString()) {
+                    const openingTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), ...hours.start.split(':').map(Number));
+                    const closingTime = getClosingTime(date, hours); // Nutzt die neue Helper-Funktion
+
+                    if (now.getTime() < openingTime.getTime()) {
+                        nextOpeningHoursDisplay.innerHTML = `Öffnet heute um ${hours.start} Uhr`;
+                    } else if (now.getTime() < closingTime.getTime()) {
+                        nextOpeningHoursDisplay.innerHTML = `Heute geöffnet bis ${hours.end.replace('24:00', '00:00')} Uhr`;
+                    } else {
+                        // Nach Feierabend
+                        let nextOpeningDayFound = false;
+                        for (let i = 1; i <= 7; i++) {
+                            const nextDayDate = new Date(now);
+                            nextDayDate.setDate(now.getDate() + i);
+                            const nextDayName = days[nextDayDate.getDay()];
+                            if (currentTherme.openingHoursData[nextDayName]) {
+                                nextOpeningHoursDisplay.innerHTML = `Geschlossen. Öffnet am ${nextDayName} um ${currentTherme.openingHoursData[nextDayName].start} Uhr.`;
+                                nextOpeningDayFound = true;
+                                break;
+                            }
+                        }
+                        if (!nextOpeningDayFound) {
+                            nextOpeningHoursDisplay.innerHTML = "Geschlossen";
+                        }
+                    }
+                } else {
+                    // Wenn das angezeigte Datum in der Zukunft liegt (vom initializeUI bestimmt)
+                    nextOpeningHoursDisplay.innerHTML = `Startzeit ist am ${dayName} um ${hours.start} Uhr.`;
+                }
+            }
+
+            function updateFixedPricesUI() {
+                let tableHtml = '<h3 class="font-bold text-center mb-1 text-gray-600">Fixpreise</h3><table class="mx-auto text-left">';
+                tableHtml += '<tbody>';
+                currentTherme.ticketPrices.forEach(ticket => {
+                    tableHtml += `<tr><td class="py-0.5 pr-4">${ticket.name}</td><td class="py-0.5 text-right font-medium">${ticket.price.toFixed(2).replace('.', ',')} €</td></tr>`;
+                });
+                tableHtml += `<tr><td class="py-0.5 pr-4">Verlängerung (30min)</td><td class="py-0.5 text-right font-medium">${currentTherme.extensionCost.toFixed(2).replace('.', ',')} €</td></tr>`;
+                tableHtml += '</tbody></table>';
+                fixedPricesContainer.innerHTML = tableHtml;
+            }
+
+            function findBestOption(durationInMinutes) {
+                let bestOption = null;
+                let minCost = Infinity;
+                let allCalculatedCosts = [];
+                currentTherme.ticketPrices.forEach(ticket => {
+                    let cost = ticket.price;
+                    if (durationInMinutes > ticket.duration && ticket.duration !== Infinity) {
+                        const extraMinutes = durationInMinutes - ticket.duration;
+                        // Verlängerung wird auf die nächste volle 30-Minuten-Einheit aufgerundet
+                        const extensionsNeeded = Math.ceil(extraMinutes / 30); 
+                        cost += extensionsNeeded * currentTherme.extensionCost;
+                    }
+                    allCalculatedCosts.push({ name: ticket.name, cost: cost });
+                    if (cost < minCost) {
+                        minCost = cost;
+                        bestOption = { name: ticket.name, duration: ticket.duration, price: ticket.price };
+                    }
+                });
+                allCalculatedCosts.sort((a, b) => a.cost - b.cost);
+                let savings = 0;
+                let comparedToOption = '';
+                // Finde die zweitgünstigste Option, um die Ersparnis zu berechnen
+                const uniqueCosts = [...new Set(allCalculatedCosts.map(item => item.cost))];
+                if (uniqueCosts.length > 1) {
+                    const secondBestCost = uniqueCosts[1];
+                    const secondBestOption = allCalculatedCosts.find(item => item.cost === secondBestCost);
+                    savings = secondBestCost - minCost;
+                    comparedToOption = secondBestOption.name;
+                }
+                return { bestOption, calculatedCost: minCost, savings, comparedToOption };
+            }
+
+            function getBreakEvenTime(entryTime) {
+                const fourHourTicket = currentTherme.ticketPrices.find(t => t.duration === 240);
+                const dayPassTicket = currentTherme.ticketPrices.find(t => t.duration === Infinity);
+                
+                if (!fourHourTicket || !dayPassTicket || fourHourTicket.price >= dayPassTicket.price) {
+                    breakEvenTimeContainer.style.display = 'none';
+                    return;
+                }
+                
+                breakEvenTimeContainer.style.display = 'block';
+                const costDifference = dayPassTicket.price - fourHourTicket.price;
+                const extensionsNeeded = Math.ceil(costDifference / currentTherme.extensionCost);
+                const minutesToAdd = fourHourTicket.duration + extensionsNeeded * 30;
+
+                const dayOfWeek = days[entryTime.getDay()];
+                const hours = currentTherme.openingHoursData[dayOfWeek];
+                
+                if (!hours) return "Geschlossen";
+                
+                const openingTime = new Date(entryTime.getFullYear(), entryTime.getMonth(), entryTime.getDate(), ...hours.start.split(':').map(Number));
+                const closingTime = getClosingTime(entryTime, hours); // Nutzt die neue Helper-Funktion
+                
+                const effectiveStartTime = new Date(Math.max(entryTime.getTime(), openingTime.getTime()));
+                
+                const minutesAvailableToday = (closingTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60);
+
+                if (minutesToAdd > minutesAvailableToday) return "Heute nicht rentabel";
+                
+                const breakEvenDate = new Date(effectiveStartTime.getTime());
+                breakEvenDate.setMinutes(breakEvenDate.getMinutes() + minutesToAdd);
+                
+                return `${breakEvenDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`;
+            }
+
+            function getRecommendationColor(result) {
+                 if (result.bestOption.name.includes('2-Stunden')) return 'bg-green-500';
+                 if (result.bestOption.name.includes('4-Stunden')) return 'bg-yellow-500';
+                 return 'bg-blue-500';
+            }
+            
+            function handleInvalidInput(message) {
+                recommendationBox.className = 'p-2 rounded-lg text-white font-medium text-center bg-red-500 min-h-[4rem] flex flex-col justify-center';
+                recommendationText.textContent = message;
+                savingsText.innerHTML = '&nbsp;';
+                calculatedCostDisplay.textContent = '';
+                breakEvenTimeDisplay.textContent = 'N/A';
+                durationDisplay.textContent = '';
+                tomorrowLabel.classList.add('hidden');
+            }
+
+            function calculateAndDisplay() {
+                const now = getNow();
+                
+                const entryTimeValue = entryTimeInput.value;
+                const departureTimeValue = departureTimeInput.value;
+                const durationHoursValue = durationHoursInput.value;
+                const durationMinutesValue = durationMinutesInput.value;
+
+                let effectiveEntryTime = null;
+                let effectiveDepartureTime = null;
+                let dayForCalculation = null;
+                let durationInMinutes = 0;
+                let adjustedMessage = '';
+                
+                // --- Szenario 1: Dauer ist die primäre Eingabe ---
+                if (lastInteractionType === 'duration' && (durationHoursValue || durationMinutesValue)) {
+                    durationLabel.textContent = 'ABREISEZEIT';
+                    const hours = parseInt(durationHoursValue) || 0;
+                    const minutes = parseInt(durationMinutesValue) || 0;
+                    let plannedDuration = hours * 60 + minutes;
+
+                    if (plannedDuration <= 0) {
+                        handleInvalidInput('Dauer muss $>0$ sein.');
+                        return;
+                    }
+
+                    // 1a. effektive Startzeit festlegen (Eintrag oder nächste Öffnung)
+                    let baseDate = new Date(now);
+                    if (entryTimeValue) {
+                        const [entryHour, entryMinute] = entryTimeValue.split(':').map(Number);
+                        baseDate.setHours(entryHour, entryMinute, 0, 0);
+
+                        // Wenn die eingegebene Zeit heute in der Vergangenheit liegt, auf morgen setzen
+                        if (baseDate.getTime() < now.getTime() && (now.getTime() - baseDate.getTime()) > 60000) {
+                            baseDate.setDate(baseDate.getDate() + 1);
+                        }
+                    }
+                    dayForCalculation = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+
+                    const openingHours = currentTherme.openingHoursData[days[dayForCalculation.getDay()]];
+                    if (!openingHours) {
+                        handleInvalidInput("Am Zieldatum geschlossen.");
+                        return;
+                    }
+                    const openingTime = new Date(dayForCalculation.getFullYear(), dayForCalculation.getMonth(), dayForCalculation.getDate(), ...openingHours.start.split(':').map(Number));
+                    const closingTime = getClosingTime(dayForCalculation, openingHours); // Zentralisierte Schließzeit
+
+                    effectiveEntryTime = new Date(baseDate.getTime());
+                    
+                    // Sicherstellen, dass die effektive Startzeit nicht vor der Öffnungszeit liegt und nicht vor jetzt (wenn heute)
+                    if (baseDate.toDateString() === now.toDateString()) {
+                        effectiveEntryTime = new Date(Math.max(effectiveEntryTime.getTime(), now.getTime(), openingTime.getTime()));
+                    } else {
+                        effectiveEntryTime = new Date(Math.max(effectiveEntryTime.getTime(), openingTime.getTime()));
+                    }
+
+                    // 1b. Maximale Dauer und Abreisezeit berechnen
+                    const remainingMinutes = Math.max(0, (closingTime.getTime() - effectiveEntryTime.getTime()) / (1000 * 60));
+                    const maxDurationExceeded = plannedDuration > remainingMinutes;
+
+                    durationInMinutes = Math.min(plannedDuration, remainingMinutes);
+                    
+                    effectiveDepartureTime = new Date(effectiveEntryTime.getTime() + durationInMinutes * 60 * 1000);
+                    durationDisplay.textContent = `${effectiveDepartureTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`;
+
+                    const result = findBestOption(durationInMinutes);
+
+                    if (maxDurationExceeded) {
+                        const maxHours = Math.floor(remainingMinutes / 60);
+                        const maxMinutes = Math.floor(remainingMinutes % 60);
+                        recommendationBox.className = `p-2 rounded-lg text-white font-medium text-center bg-red-500 min-h-[4rem] flex flex-col justify-center`;
+                        recommendationText.textContent = 'Berechnung angepasst';
+                        savingsText.innerHTML = `Maximale Aufenthaltsdauer ist ${maxHours}h ${maxMinutes}min.`;
+                    } else {
+                        let recommendationColor = getRecommendationColor(result);
+                        recommendationBox.className = `p-2 rounded-lg text-white font-medium text-center ${recommendationColor} min-h-[4rem] flex flex-col justify-center`;
+                        recommendationText.textContent = result.bestOption.name;
+                        savingsText.innerHTML = result.savings > 0
+                            ? `Du sparst ${result.savings.toFixed(2).replace('.', ',')} € im Vergleich zum<br>${result.comparedToOption}.`
+                            : 'Dies ist die günstigste Option.<br>&nbsp;';
+                    }
+                    
+                    breakEvenTimeDisplay.textContent = getBreakEvenTime(effectiveEntryTime) || 'Nicht relevant';
+                    calculatedCostDisplay.textContent = `${result.calculatedCost.toFixed(2).replace('.', ',')} €`;
+                    
+                } else {
+                    // --- Szenario 2: Uhrzeiten sind die primäre Eingabe ---
+                    durationLabel.textContent = 'DAUER';
+                    if (!entryTimeValue && !departureTimeValue) {
+                        handleInvalidInput('Bitte eine Zeit oder Dauer eingeben.');
+                        return;
+                    }
+
+                    // 2a. EntryTime und DepartureTime sind beide gesetzt
+                    if (entryTimeValue && departureTimeValue) {
+                         const [entryHour, entryMinute] = entryTimeValue.split(':').map(Number);
+                         const [departureHour, departureMinute] = departureTimeValue.split(':').map(Number);
+                         
+                         effectiveEntryTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), entryHour, entryMinute);
+                         effectiveDepartureTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), departureHour, departureMinute);
+
+                        // Wenn Entry in der Vergangenheit liegt (heute), auf morgen setzen
+                        if (effectiveEntryTime.getTime() < now.getTime() && (now.getTime() - effectiveEntryTime.getTime() > 60000)) {
+                            effectiveEntryTime.setDate(effectiveEntryTime.getDate() + 1);
+                        }
+                        // Wenn Departure <= Entry, Departure auf den nächsten Tag setzen
+                        if (effectiveDepartureTime.getTime() <= effectiveEntryTime.getTime()) {
+                            effectiveDepartureTime.setDate(effectiveDepartureTime.getDate() + 1);
+                        }
+                        dayForCalculation = new Date(effectiveEntryTime.getFullYear(), effectiveEntryTime.getMonth(), effectiveEntryTime.getDate());
+
+                    // 2b. Nur DepartureTime ist gesetzt (EntryTime wird auf Öffnung/Jetzt gesetzt)
+                    } else if (departureTimeValue) {
+                        const [departureHour, departureMinute] = departureTimeValue.split(':').map(Number);
+                        
+                        // Finde den Tag der Abreise (heute oder morgen)
+                        dayForCalculation = new Date(now);
+                        const intendedDeparture = new Date(now.getFullYear(), now.getMonth(), now.getDate(), departureHour, departureMinute);
+
+                        const todayHours = currentTherme.openingHoursData[days[now.getDay()]];
+                        if (todayHours) {
+                             const todayClosingTime = getClosingTime(now, todayHours);
+                             // Wenn jetzt schon nach Feierabend ODER die beabsichtigte Abreise vor jetzt liegt (z.B. 03:00 Uhr am Morgen)
+                             if (now.getTime() >= todayClosingTime.getTime() || (intendedDeparture.getTime() <= now.getTime() && intendedDeparture.getHours() < 6)) {
+                                dayForCalculation.setDate(dayForCalculation.getDate() + 1);
+                             }
+                        } else if (intendedDeparture.getTime() <= now.getTime()) {
+                            dayForCalculation.setDate(dayForCalculation.getDate() + 1);
+                        }
+                        
+                        const visitDayOpeningHours = currentTherme.openingHoursData[days[dayForCalculation.getDay()]];
+                        if (!visitDayOpeningHours) { handleInvalidInput("Am Zieldatum geschlossen."); return; }
+                        
+                        const visitDayOpeningTime = new Date(dayForCalculation.getFullYear(), dayForCalculation.getMonth(), dayForCalculation.getDate(), ...visitDayOpeningHours.start.split(':').map(Number));
+
+                        // Effektive EntryTime: entweder jetzt (wenn heute) oder zur Öffnungszeit
+                        effectiveEntryTime = (dayForCalculation.toDateString() === now.toDateString())
+                            ? new Date(Math.max(now.getTime(), visitDayOpeningTime.getTime()))
+                            : visitDayOpeningTime;
+
+                        effectiveDepartureTime = new Date(dayForCalculation.getFullYear(), dayForCalculation.getMonth(), dayForCalculation.getDate(), departureHour, departureMinute);
+                        // Falls Abreise am selben Tag vor der effektiven EntryTime liegt, auf den nächsten Tag verschieben
+                        if (effectiveDepartureTime.getTime() <= effectiveEntryTime.getTime()) {
+                            effectiveDepartureTime.setDate(effectiveDepartureTime.getDate() + 1);
+                        }
+                    } else if (entryTimeValue) {
+                        // Nur EntryTime ist gesetzt (DepartureTime wird auf den nächsten Tag/Schließzeit gesetzt)
+                        handleInvalidInput('Bitte EntryTime **und** DepartureTime oder Dauer eingeben.');
+                        return;
+                    } else {
+                         // Sollte nicht passieren, aber als Fallback
+                         handleInvalidInput('Bitte eine Zeit oder Dauer eingeben.');
+                         return;
+                    }
+
+                    const entryDayHours = currentTherme.openingHoursData[days[dayForCalculation.getDay()]];
+                    if (!entryDayHours) { handleInvalidInput("Geschlossen am Besuchsdatum."); return; }
+                    
+                    const openingTime = new Date(dayForCalculation.getFullYear(), dayForCalculation.getMonth(), dayForCalculation.getDate(), ...entryDayHours.start.split(':').map(Number));
+                    const closingTime = getClosingTime(dayForCalculation, entryDayHours); // Zentralisierte Schließzeit
+
+                    // Clamping (Anpassung an Öffnungs-/Schließzeiten)
+                    if (entryTimeValue) {
+                        const inputTimeOnVisitDay = new Date(dayForCalculation.getFullYear(), dayForCalculation.getMonth(), dayForCalculation.getDate(), ...entryTimeValue.split(':').map(Number));
+                        
+                        // 1. Clamping der Startzeit zur Öffnungszeit
+                        if (inputTimeOnVisitDay.getTime() < openingTime.getTime()) {
+                            effectiveEntryTime = openingTime;
+                            adjustedMessage += 'Ihre Startzeit wurde auf die Öffnungszeit angepasst.<br>';
+                        }
+                        
+                        // 2. Clamping der Abreisezeit zur Schließzeit
+                        if (departureTimeValue && effectiveDepartureTime.getTime() > closingTime.getTime()) {
+                            effectiveDepartureTime = closingTime;
+                            adjustedMessage += `Ihre Abreisezeit wurde auf die Schließzeit (${entryDayHours.end.replace('24:00', '00:00')} Uhr) angepasst.<br>`;
+                        }
+                    }
+                    
+                    durationInMinutes = Math.max(0, (effectiveDepartureTime.getTime() - effectiveEntryTime.getTime()) / (1000 * 60));
+                    
+                    const result = findBestOption(durationInMinutes);
+                    const recommendationColor = getRecommendationColor(result);
+
+                    if (adjustedMessage) {
+                        recommendationBox.className = `p-2 rounded-lg text-white font-medium text-center bg-red-500 min-h-[4rem] flex flex-col justify-center`;
+                        recommendationText.textContent = 'Berechnung angepasst';
+                        savingsText.innerHTML = adjustedMessage + `Öffnungszeiten: ${entryDayHours.start} - ${entryDayHours.end.replace('24:00', '00:00')} Uhr.`;
+                    } else {
+                        recommendationBox.className = `p-2 rounded-lg text-white font-medium text-center ${recommendationColor} min-h-[4rem] flex flex-col justify-center`;
+                        recommendationText.textContent = result.bestOption.name;
+                        savingsText.innerHTML = result.savings > 0
+                            ? `Du sparst ${result.savings.toFixed(2).replace('.', ',')} € im Vergleich zum<br>${result.comparedToOption}.`
+                            : 'Dies ist die günstigste Option.<br>&nbsp;';
+                    }
+
+                    calculatedCostDisplay.textContent = `${result.calculatedCost.toFixed(2).replace('.', ',')} €`;
+                    durationDisplay.textContent = `${Math.floor(durationInMinutes / 60)}h ${Math.floor(durationInMinutes % 60)}min`;
+                    breakEvenTimeDisplay.textContent = getBreakEvenTime(effectiveEntryTime) || 'Nicht relevant';
+                }
+
+                // Logik für das "Morgen"-Label
+                if (effectiveEntryTime && effectiveDepartureTime) {
+                    const entryDay = new Date(effectiveEntryTime);
+                    entryDay.setHours(0, 0, 0, 0);
+                    const departureDay = new Date(effectiveDepartureTime);
+                    departureDay.setHours(0, 0, 0, 0);
+                    
+                    if (entryDay.getTime() !== departureDay.getTime()) {
+                         tomorrowLabel.classList.remove('hidden');
+                    } else {
+                         tomorrowLabel.classList.add('hidden');
+                    }
+                } else {
+                     tomorrowLabel.classList.add('hidden');
+                }
+
+                if (dayForCalculation) {
+                    displayOpeningHours(dayForCalculation);
+                }
+            }
+            
+            function handleInput(event) {
+                const targetId = event.target.id;
+
+                // Logik zur Festlegung der Interaktionspriorität
+                if (targetId === 'entryTime') {
+                    // Wenn Dauer bereits gesetzt, bleibt Dauer Priorität, sonst Zeit.
+                    if (durationHoursInput.value || durationMinutesInput.value) {
+                        // lastInteractionType bleibt 'duration'
+                    } else {
+                        lastInteractionType = 'time';
+                    }
+                } else if (targetId === 'departureTime') {
+                    lastInteractionType = 'time';
+                    // Bei Änderung der Abreisezeit wird die Dauer gelöscht
+                    durationHoursInput.value = '';
+                    durationMinutesInput.value = '';
+                } else if (targetId === 'durationHours' || targetId === 'durationMinutes') {
+                    lastInteractionType = 'duration';
+                    // Bei Änderung der Dauer wird die Abreisezeit gelöscht
+                    departureTimeInput.value = '';
+                }
+                
+                // Berechnung auslösen
+                calculateAndDisplay();
+            }
+
+            function initializeUI() {
+                currentTherme = thermeData[thermeSelect.value];
+                updateFixedPricesUI();
+
+                const now = getNow();
+                let effectiveDate = new Date(now);
+                let dayName = days[effectiveDate.getDay()];
+                let openingHours = currentTherme.openingHoursData[dayName];
+                let effectiveStartTime = getNowTimeFormatted();
+                
+                // Suche den effektiven Startzeitpunkt (heute oder am nächsten Öffnungstag)
+                let foundNextOpen = false;
+                for (let i = 0; i < 7; i++) {
+                    dayName = days[effectiveDate.getDay()];
+                    openingHours = currentTherme.openingHoursData[dayName];
+
+                    if (!openingHours) {
+                        effectiveDate.setDate(effectiveDate.getDate() + 1);
+                        continue;
+                    }
+
+                    const [openHour, openMinute] = openingHours.start.split(':').map(Number);
+                    const openingTimeDate = new Date(effectiveDate.getFullYear(), effectiveDate.getMonth(), effectiveDate.getDate(), openHour, openMinute, 0, 0);
+                    const closingTimeDate = getClosingTime(effectiveDate, openingHours); 
+
+                    if (i === 0 && now.getTime() >= closingTimeDate.getTime()) {
+                        effectiveDate.setDate(effectiveDate.getDate() + 1);
+                        continue;
+                    }
+
+                    if (i > 0 || now.getTime() < openingTimeDate.getTime()) {
+                        effectiveStartTime = openingHours.start; 
+                        foundNextOpen = true;
+                        break;
+                    }
+                    
+                    effectiveStartTime = getNowTimeFormatted();
+                    foundNextOpen = true;
+                    break;
+                }
+
+                if (!foundNextOpen) {
+                    effectiveStartTime = '09:00';
+                }
+                
+                // 1. Beginn-Zeit setzen (nur wenn leer)
+                if (!entryTimeInput.value) { 
+                    entryTimeInput.value = effectiveStartTime;
+                }
+                
+                // 2. Abreise-Zeit setzen (nur wenn leer UND die letzte Interaktion ZEIT war)
+                // DIES IST DIE ENTSCHEIDENDE KORREKTUR
+                if (!departureTimeInput.value && lastInteractionType === 'time') {
+                     departureTimeInput.value = '19:00';
+                } else if (lastInteractionType === 'duration') {
+                    // Wichtig: Bei Thermenwechsel und gesetzter Dauer MUSS die Abreisezeit leer bleiben,
+                    // damit die Berechnung die Dauer als Priorität behält.
+                    departureTimeInput.value = ''; 
+                }
+
+                // Setze Interaktionspriorität auf das, was zuletzt gesetzt war (oder 'time' als Fallback)
+                // lastInteractionType = lastInteractionType; // Beibehaltung der letzten Priorität
+
+                // Wichtig: Jetzt die Öffnungszeiten basierend auf dem effektiven Starttag anzeigen
+                displayOpeningHours(effectiveDate);
+                calculateAndDisplay();
+            }
+
+            // Modal-Funktionen
+            function openInfoModal() {
+                const selectedTherme = thermeSelect.value;
+                const thermeName = thermeSelect.options[thermeSelect.selectedIndex].text;
+                const data = thermeData[selectedTherme];
+
+                modalTitle.textContent = thermeName;
+                
+                const sortedDays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+
+                let contentHtml = '<p class="text-sm font-semibold mb-2 text-gray-800">Öffnungszeiten:</p>';
+                contentHtml += '<table class="w-full text-left border-collapse">';
+                
+                sortedDays.forEach(day => {
+                    if (data.openingHoursData[day]) {
+                        const hours = data.openingHoursData[day];
+                        contentHtml += `<tr class="border-t border-gray-200"><td class="py-1 px-1">${day}</td><td class="py-1 px-1 text-right font-medium">${hours.start} - ${hours.end.replace('24:00', '00:00')} Uhr</td></tr>`;
+                    }
+                });
+                
+                contentHtml += '</table>';
+
+                contentHtml += '<p class="text-sm font-semibold mt-4 mb-2 text-gray-800">Preise und Verlängerung:</p>';
+                contentHtml += '<table class="w-full text-left border-collapse">';
+                data.ticketPrices.forEach(ticket => {
+                    contentHtml += `<tr class="border-t border-gray-200"><td class="py-1 px-1">${ticket.name}</td><td class="py-1 px-1 text-right font-medium">${ticket.price.toFixed(2).replace('.', ',')} €</td></tr>`;
+                });
+                contentHtml += `<tr class="border-t border-gray-200"><td class="py-1 px-1">Verlängerung (30min)</td><td class="py-1 px-1 text-right font-medium">${data.extensionCost.toFixed(2).replace('.', ',')} €</td></tr>`;
+                contentHtml += '</table>';
+
+                modalContent.innerHTML = contentHtml;
+                infoModal.classList.remove('hidden');
+            }
+
+            // Initialisierung und Event-Listener
+            initializeUI();
+
+            function startUpdateInterval() {
+                // Regelmäßige Aktualisierung der Anzeige (falls die Zeit weiterläuft und keine Eingabe erfolgt)
+                setInterval(() => {
+                    if (!document.activeElement.matches('input[type="time"], input[type="number"]')) {
+                        calculateAndDisplay(); 
+                    }
+                }, 10000); // Alle 10 Sekunden
+            }
+
+            startUpdateInterval();
+
+            // Event-Listener für Thermenwechsel (löst initializeUI aus, die nun die Eingabewerte schützt)
+            // Die Logik in initializeUI() stellt sicher, dass die Priorität (time/duration) beibehalten wird.
+            thermeSelect.addEventListener('change', initializeUI);
+            
+            // Event-Listener für Benutzereingaben
+            entryTimeInput.addEventListener('input', handleInput);
+            departureTimeInput.addEventListener('input', handleInput);
+            durationHoursInput.addEventListener('input', handleInput);
+            durationMinutesInput.addEventListener('input', handleInput);
+            
+            // Event-Listener für Modal
+            infoButton.addEventListener('click', openInfoModal);
+            closeModalButton.addEventListener('click', () => {
+                infoModal.classList.add('hidden');
+            });
+            window.addEventListener('click', (event) => {
+                if (event.target === infoModal) {
+                    infoModal.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
