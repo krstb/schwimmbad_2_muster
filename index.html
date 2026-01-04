@@ -60,6 +60,7 @@
                         <option value="kristalltherme">Kristall-Therme Schwangau</option>
                         <option value="titania">Titania</option>
                         <option value="musterbad">Musterbad</option>
+                          <option value="musterbad">Musterbad2</option>
                     </select>
                     <button id="infoButton" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-500 transition-colors duration-200">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
@@ -224,6 +225,23 @@
                     extensionCost: 2.00,
                     openingHoursData: {
                         'Sonntag': { start: '10:00', end: '22:00' },
+                        'Montag': { start: '10:00', end: '22:00' },
+                        'Dienstag': { start: '10:00', end: '22:00' },
+                        'Mittwoch': { start: '10:00', end: '22:00' },
+                        'Donnerstag': { start: '10:00', end: '22:00' },
+                        'Freitag': { start: '10:00', end: '22:00' },
+                        'Samstag': { start: '10:00', end: '22:00' }
+                    }
+                },
+                musterbad2: {
+                    ticketPrices: [
+                        { duration: 120, price: 15.50, name: '2-Stunden-Ticket' },
+                        { duration: 240, price: 20.50, name: '4-Stunden-Ticket' },
+                        { duration: Infinity, price: 30.50, name: 'Tageskarte' }
+                    ],
+                    extensionCost: 2.50,
+                    openingHoursData: {
+                        'Sonntag': { start: '08:00', end: '22:00' },
                         'Montag': { start: '10:00', end: '22:00' },
                         'Dienstag': { start: '10:00', end: '22:00' },
                         'Mittwoch': { start: '10:00', end: '22:00' },
