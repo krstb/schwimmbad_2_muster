@@ -26,6 +26,7 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+	
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');      
 
         /* Fix für PWA-Ränder und den blauen Balken */
@@ -68,8 +69,10 @@
                     </select>
                     <button id="infoButton" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-500 transition-colors duration-200">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.855l-.041.021a.75.75 0 01-.855-1.063zm-.814 8.814h.024a.5.5 0 01-.024-.024v.024zm.814 0h.024a.5.5 0 01-.024-.024v.024zm-6.236-8.814h.024a.5.5 0 01-.024-.024v.024zm.814 0h.024a.5.5 0 01-.024-.024v.024z" />
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z" />
+                          <!-- Der äußere Kreis -->
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
+                          <!-- Das innere "i" (Strich + Punkt) -->
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V10.5M12 7.5h.008v.008H12V7.5Z" />
                         </svg>
                     </button>
                 </div>
@@ -459,7 +462,7 @@
                     let plannedDuration = hours * 60 + minutes;
 
                     if (plannedDuration <= 0) {
-                        handleInvalidInput('Dauer muss $>0$ sein.');
+                        handleInvalidInput('Dauer muss >0 sein.');
                         return;
                     }
 
